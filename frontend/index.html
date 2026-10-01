@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Expense Tracker</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #222638;
+      --border:    #2e3250;
+      --accent:    #6c63ff;
+      --accent2:   #a78bfa;
+      --green:     #22c55e;
+      --red:       #f87171;
+      --yellow:    #fbbf24;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --radius:    12px;
+      --shadow:    0 4px 24px rgba(0,0,0,.4);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; }
+    header h1 span { color: var(--accent2); }
+    header .subtitle { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+
+    .logo { font-size: 2rem; }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    /* ── Cards ────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1.2rem;
+      color: var(--accent2);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    /* ── Form ─────────────────────────────────────────────────────────── */
+    .form-group { margin-bottom: 1rem; }
+    .form-group label {
+      display: block;
+      font-size: .82rem;
+      color: var(--muted);
+      margin-bottom: .35rem;
+      font-weight: 500;
+    }
+
+    input, select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .6rem .85rem;
+      color: var(--text);
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+
+    /* Date input calendar icon colour */
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(.5); cursor: pointer; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .65rem 1.4rem;
+      border: none;
+      border-radius: 8px;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--accent); color: #fff; width: 100%; justify-content: center; }
+    .btn-danger  { background: transparent; border: 1px solid var(--border); color: var(--red); padding: .3rem .6rem; font-size: .8rem; border-radius: 6px; }
+    .btn-danger:hover { background: rgba(248,113,113,.12); }
+
+    .error-msg {
+      background: rgba(248,113,113,.15);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      color: var(--red);
+      padding: .6rem 1rem;
+      font-size: .88rem;
+      margin-top: .75rem;
+      display: none;
+    }
+    .success-msg {
+      background: rgba(34,197,94,.12);
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      color: var(--green);
+      padding: .6rem 1rem;
+      font-size: .88rem;
+      margin-top: .75rem;
+      display: none;
+    }
+
+    /* ── Stats bar ────────────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+    }
+    .stat-card .label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .stat-card .value { font-size: 1.5rem; font-weight: 700; margin-top: .2rem; }
+    .stat-card .value.green { color: var(--green); }
+    .stat-card .value.purple { color: var(--accent2); }
+    .stat-card .value.yellow { color: var(--yellow); }
+
+    /* ── Filters ──────────────────────────────────────────────────────── */
+    .filters {
+      display: flex;
+      gap: .75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .filters input, .filters select { flex: 1; min-width: 140px; }
+    .filters .btn { white-space: nowrap; padding: .6rem 1rem; }
+
+    /* ── Table ────────────────────────────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .9rem;
+    }
+
+    thead th {
+      background: var(--surface2);
+      padding: .75rem 1rem;
+      text-align: left;
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-top: 1px solid var(--border);
+      transition: background .12s;
+    }
+    tbody tr:hover { background: var(--surface2); }
+
+    td { padding: .7rem 1rem; vertical-align: middle; }
+
+    .badge {
+      display: inline-block;
+      padding: .2rem .65rem;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 600;
+      background: rgba(108,99,255,.2);
+      color: var(--accent2);
+    }
+
+    .amount-cell { font-weight: 600; color: var(--green); }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: .5rem; }
+    .empty-state p { font-size: .95rem; }
+
+    /* ── Category breakdown ───────────────────────────────────────────── */
+    .cat-list { list-style: none; }
+    .cat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: .55rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .cat-item:last-child { border-bottom: none; }
+    .cat-item .name { font-size: .9rem; }
+    .cat-item .amt  { font-weight: 600; color: var(--green); font-size: .9rem; }
+    .cat-item .bar-wrap { flex: 1; margin: 0 .75rem; height: 6px; background: var(--border); border-radius: 3px; }
+    .cat-item .bar { height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s ease; }
+
+    /* ── Toast ────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--green);
+      color: #fff;
+      padding: .7rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: .9rem;
+      box-shadow: var(--shadow);
+      transform: translateY(120%);
+      transition: transform .3s ease;
+      z-index: 9999;
+    }
+    #toast.show { transform: translateY(0); }
+    #toast.error { background: var(--red); }
+
+    /* ── Spinner ──────────────────────────────────────────────────────── */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading .spinner { display: inline-block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">💸</div>
+  <div>
+    <h1>Smart Expense <span>Tracker</span></h1>
+    <div class="subtitle">Powered by FastAPI · Data persists to JSON</div>
+  </div>
+</header>
+
+<main>
+  <!-- ── Left column: Add form ─────────────────────────── -->
+  <aside>
+    <div class="card">
+      <h2>➕ Add Expense</h2>
+      <form id="add-form" novalidate>
+        <div class="form-group">
+          <label for="title">Title</label>
+          <input id="title" type="text" placeholder="e.g. Groceries" required maxlength="200" />
+        </div>
+        <div class="form-group">
+          <label for="amount">Amount (₹)</label>
+          <input id="amount" type="number" placeholder="0.00" step="0.01" min="0.01" required />
+        </div>
+        <div class="form-group">
+          <label for="category">Category</label>
+          <input id="category" type="text" placeholder="e.g. Food" list="cat-suggestions" required maxlength="100" />
+          <datalist id="cat-suggestions"></datalist>
+        </div>
+        <div class="form-group">
+          <label for="date">Date</label>
+          <input id="date" type="date" required />
+        </div>
+        <button class="btn btn-primary" type="submit" id="add-btn">
+          <span class="spinner" id="add-spinner"></span>
+          Add Expense
+        </button>
+        <div class="error-msg"   id="form-error"></div>
+        <div class="success-msg" id="form-success">Expense added!</div>
+      </form>
+    </div>
+
+    <!-- AI assistant -->
+    <div class="card" style="margin-top:1.5rem">
+      <h2>🤖 AI Assistant</h2>
+      <div class="field">
+        <input id="ai-input" type="text" maxlength="500" placeholder='Try: "I spent 450 on dinner yesterday"' />
+      </div>
+      <button class="btn btn-primary" id="ai-btn" type="button">Ask</button>
+      <div id="ai-reply" style="margin-top:.75rem;font-size:.9rem;color:var(--text)"></div>
+      <div id="ai-actions" style="margin-top:.4rem;font-size:.75rem;color:var(--muted)"></div>
+    </div>
+
+    <!-- Category breakdown -->
+    <div class="card" style="margin-top:1.5rem">
+      <h2>📊 By Category</h2>
+      <ul class="cat-list" id="cat-list">
+        <li style="color:var(--muted);font-size:.88rem">No data yet.</li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- ── Right column: Stats + table ───────────────────── -->
+  <section>
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">Total Spent</div>
+        <div class="value green" id="stat-total">₹0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Expenses</div>
+        <div class="value purple" id="stat-count">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Categories</div>
+        <div class="value yellow" id="stat-cats">0</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card">
+      <h2>📋 Expenses</h2>
+      <div class="filters">
+        <input id="filter-search" type="text" placeholder="🔍 Search by title…" />
+        <select id="filter-cat">
+          <option value="">All categories</option>
+        </select>
+        <button class="btn btn-primary" id="filter-btn" style="width:auto">Filter</button>
+        <button class="btn" id="clear-btn" style="background:var(--surface2);border:1px solid var(--border);width:auto">Clear</button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Title</th>
+              <th>Amount</th>
+              <th>Category</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="expense-tbody">
+            <tr><td colspan="6"><div class="empty-state"><div class="icon">🧾</div><p>No expenses yet. Add one!</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  /* ── Config ────────────────────────────────────────────────────────── */
+  // When serving through FastAPI at "/" the API is on the same origin.
+  // If you open index.html directly as a file, point this to the running server.
+  const API = window.location.origin === 'null'
+    ? 'http://127.0.0.1:8000'
+    : window.location.origin;
+
+  /* ── Helpers ────────────────────────────────────────────────────────── */
+  const $ = id => document.getElementById(id);
+
+  function fmt(n) {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+    }).format(n);
+  }
+
+  function showToast(msg, isError = false) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'show' + (isError ? ' error' : '');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.className = ''; }, 3000);
+  }
+
+  async function apiFetch(path, opts = {}) {
+    const res = await fetch(API + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    if (res.status === 204) return null;
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.detail || JSON.stringify(body));
+    return body;
+  }
+
+  /* ── Colour palette for categories ──────────────────────────────────── */
+  const palette = [
+    '#6c63ff','#a78bfa','#22c55e','#fbbf24',
+    '#38bdf8','#f87171','#fb923c','#e879f9',
+  ];
+  const catColour = {};
+  let palIdx = 0;
+  function colourFor(cat) {
+    if (!catColour[cat]) {
+      catColour[cat] = palette[palIdx % palette.length];
+      palIdx++;
+    }
+    return catColour[cat];
+  }
+
+  /* ── Render ─────────────────────────────────────────────────────────── */
+  function renderExpenses(expenses) {
+    const tbody = $('expense-tbody');
+    $('stat-count').textContent = expenses.length;
+
+    if (!expenses.length) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">🧾</div><p>No expenses found.</p></div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = expenses.map(e => `
+      <tr>
+        <td style="color:var(--muted);font-size:.8rem">${e.id}</td>
+        <td>${escHtml(e.title)}</td>
+        <td class="amount-cell">${fmt(e.amount)}</td>
+        <td><span class="badge" style="background:${colourFor(e.category)}22;color:${colourFor(e.category)}">${escHtml(e.category)}</span></td>
+        <td style="color:var(--muted)">${e.date}</td>
+        <td>
+          <button class="btn btn-danger" onclick="deleteExpense(${e.id})">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderSummary(summary) {
+    const total = summary.overall_total;
+    const byCat = summary.by_category;
+
+    $('stat-total').textContent = fmt(total);
+    $('stat-cats').textContent  = Object.keys(byCat).length;
+
+    // Category breakdown list
+    const ul = $('cat-list');
+    if (!Object.keys(byCat).length) {
+      ul.innerHTML = '<li style="color:var(--muted);font-size:.88rem">No data yet.</li>';
+      return;
+    }
+
+    ul.innerHTML = Object.entries(byCat)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amt]) => {
+        const pct = total > 0 ? (amt / total * 100).toFixed(1) : 0;
+        const col = colourFor(cat);
+        return `
+          <li class="cat-item">
+            <span class="name">${escHtml(cat)}</span>
+            <div class="bar-wrap"><div class="bar" style="width:${pct}%;background:${col}"></div></div>
+            <span class="amt">${fmt(amt)}</span>
+          </li>`;
+      }).join('');
+
+    // Refresh category filter dropdown
+    const sel = $('filter-cat');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All categories</option>'
+      + Object.keys(byCat).sort().map(c =>
+          `<option value="${escHtml(c)}" ${c === current ? 'selected' : ''}>${escHtml(c)}</option>`
+        ).join('');
+
+    // Refresh datalist for form
+    $('cat-suggestions').innerHTML = Object.keys(byCat)
+      .map(c => `<option value="${escHtml(c)}">`)
+      .join('');
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── Data loading ────────────────────────────────────────────────────── */
+  async function loadAll(categoryFilter = '', searchFilter = '') {
+    try {
+      const params = new URLSearchParams();
+      if (categoryFilter) params.set('category', categoryFilter);
+      if (searchFilter)   params.set('search',   searchFilter);
+      const qs = params.toString() ? '?' + params.toString() : '';
+
+      const [expenses, summary] = await Promise.all([
+        apiFetch('/expenses' + qs),
+        apiFetch('/expenses/totals/summary'),
+      ]);
+      renderExpenses(expenses);
+      renderSummary(summary);
+    } catch (err) {
+      showToast('Failed to load: ' + err.message, true);
+    }
+  }
+
+  /* ── Add expense ─────────────────────────────────────────────────────── */
+  $('add-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const errEl = $('form-error');
+    const okEl  = $('form-success');
+    errEl.style.display  = 'none';
+    okEl.style.display   = 'none';
+
+    const title    = $('title').value.trim();
+    const amount   = parseFloat($('amount').value);
+    const category = $('category').value.trim();
+    const date     = $('date').value;
+
+    if (!title || !category || !date || isNaN(amount) || amount <= 0) {
+      errEl.textContent = 'Please fill all fields. Amount must be > 0.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const btn = $('add-btn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    try {
+      await apiFetch('/expenses', {
+        method: 'POST',
+        body: JSON.stringify({ title, amount, category, date }),
+      });
+      $('add-form').reset();
+      okEl.style.display = 'block';
+      setTimeout(() => { okEl.style.display = 'none'; }, 2500);
+      showToast('✅ Expense added!');
+      await loadAll($('filter-cat').value, $('filter-search').value.trim());
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  });
+
+  /* ── Delete ──────────────────────────────────────────────────────────── */
+  async function deleteExpense(id) {
+    if (!confirm(`Delete expense #${id}?`)) return;
+    try {
+      await apiFetch(`/expenses/${id}`, { method: 'DELETE' });
+      showToast('🗑️ Deleted');
+      await loadAll($('filter-cat').value, $('filter-search').value.trim());
+    } catch (err) {
+      showToast('Delete failed: ' + err.message, true);
+    }
+  }
+
+  /* ── Filters ─────────────────────────────────────────────────────────── */
+  $('filter-btn').addEventListener('click', () => {
+    loadAll($('filter-cat').value, $('filter-search').value.trim());
+  });
+
+  $('filter-search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadAll($('filter-cat').value, $('filter-search').value.trim());
+  });
+
+  $('clear-btn').addEventListener('click', () => {
+    $('filter-cat').value    = '';
+    $('filter-search').value = '';
+    loadAll();
+  });
+
+  /* ── Set today as default date ───────────────────────────────────────── */
+  const today = new Date().toISOString().slice(0, 10);
+  $('date').value = today;
+
+  /* ── AI assistant ────────────────────────────────────────────────────── */
+  async function askAssistant() {
+    const msg = $('ai-input').value.trim();
+    if (!msg) return;
+    const btn = $('ai-btn');
+    btn.disabled = true; btn.textContent = 'Thinking…';
+    $('ai-reply').textContent = ''; $('ai-actions').textContent = '';
+    try {
+      const out = await apiFetch('/assistant/chat', { method: 'POST', body: JSON.stringify({ message: msg }) });
+      $('ai-reply').textContent = out.reply || 'Done.';
+      $('ai-actions').textContent = out.actions.length
+        ? 'Tools used: ' + out.actions.map(a => a.tool + (a.result.error ? ' (failed: ' + a.result.error + ')' : '')).join(', ')
+        : '';
+      $('ai-input').value = '';
+      if (out.actions.some(a => a.tool === 'add_expense' && a.result.added)) loadAll();
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Ask';
+    }
+  }
+  $('ai-btn').addEventListener('click', askAssistant);
+  $('ai-input').addEventListener('keydown', e => { if (e.key === 'Enter') askAssistant(); });
+
+  /* ── Boot ────────────────────────────────────────────────────────────── */
+  loadAll();
+</script>
+</body>
+</html>
