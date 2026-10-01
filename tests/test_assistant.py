@@ -1,4 +1,9 @@
-"""Assistant tests. The LLM is replaced by a scripted fake, so no model is needed."""
+"""
+Assistant tests — multi-user edition.
+
+The LLM is replaced by a scripted fake so no Ollama model is needed.
+All requests carry X-Username: testuser so they hit the test user's store.
+"""
 import os
 import sys
 from datetime import date
@@ -9,16 +14,22 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src import assistant  # noqa: E402
-from src.main import app, store  # noqa: E402
+from src.main import app, _get_store  # noqa: E402
 
 TODAY = date(2026, 10, 1)
+TEST_USER = "testuser"
+HEADERS = {"X-Username": TEST_USER}
 
 
 @pytest.fixture(autouse=True)
 def reset_store():
-    store.clear()
+    _get_store(TEST_USER).clear()
     yield
-    store.clear()
+    _get_store(TEST_USER).clear()
+
+
+# Grab the per-user store so helper tests can inspect it directly
+store = _get_store(TEST_USER)
 
 
 def tool_call(name, **args):
@@ -80,5 +91,21 @@ def test_endpoint_returns_503_when_llm_down(monkeypatch):
         raise httpx.ConnectError("down")
 
     monkeypatch.setattr(assistant, "chat", boom)
-    r = TestClient(app).post("/assistant/chat", json={"message": "hi"})
+    r = TestClient(app, headers=HEADERS).post("/assistant/chat", json={"message": "hi"})
     assert r.status_code == 503
+
+
+def test_assistant_expense_isolated_to_user():
+    """An expense added via the assistant only appears in that user's store."""
+    store_b = _get_store("assistant-user-b")
+    store_b.clear()
+
+    llm = scripted(
+        tool_call("add_expense", title="Solo", amount=100, category="Food", date="2026-10-01"),
+        {"role": "assistant", "content": "Added Solo."},
+    )
+    assistant.chat(store, "spent 100 on solo", llm=llm, today=TODAY)
+
+    assert len(store.list()) == 1
+    assert len(store_b.list()) == 0
+    store_b.clear()

@@ -1,5 +1,9 @@
 """
-Test suite for the Smart Expense Tracker API.
+Test suite for the Smart Expense Tracker API — multi-user edition.
+
+Every request carries X-Username: testuser so the server routes it to an
+isolated per-user store.  The autouse fixture clears that store before and
+after every test so cases remain fully independent.
 
 Run with: pytest
 """
@@ -11,18 +15,21 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.main import app, store  # noqa: E402
+from src.main import app, _get_store  # noqa: E402
+
+TEST_USER = "testuser"
+HEADERS = {"X-Username": TEST_USER}
 
 
 @pytest.fixture(autouse=True)
 def reset_store():
-    """Ensure every test starts from a clean, empty store."""
-    store.clear()
+    """Ensure every test starts from a clean, empty store for TEST_USER."""
+    _get_store(TEST_USER).clear()
     yield
-    store.clear()
+    _get_store(TEST_USER).clear()
 
 
-client = TestClient(app)
+client = TestClient(app, headers=HEADERS)
 
 
 def make_expense(title="Coffee", amount=4.5, category="Food", date="2026-07-01"):
@@ -52,10 +59,10 @@ def test_add_expense_ids_increment():
 @pytest.mark.parametrize(
     "overrides,field",
     [
-        ({"amount": 0}, "amount"),
-        ({"amount": -5}, "amount"),
-        ({"title": ""}, "title"),
-        ({"category": ""}, "category"),
+        ({"amount": 0},          "amount"),
+        ({"amount": -5},         "amount"),
+        ({"title": ""},          "title"),
+        ({"category": ""},       "category"),
         ({"date": "not-a-date"}, "date"),
     ],
 )
@@ -73,7 +80,41 @@ def test_add_expense_missing_field_returns_422():
     assert resp.status_code == 422
 
 
-# -- Read ------------------------------------------------------------------
+# -- Missing / bad header ------------------------------------------------
+
+def test_missing_username_header_returns_422():
+    """Requests without X-Username must be rejected."""
+    no_header_client = TestClient(app)
+    resp = no_header_client.post("/expenses", json=make_expense())
+    assert resp.status_code == 422
+
+
+def test_invalid_username_header_returns_400():
+    """Usernames with path-traversal chars must be rejected."""
+    bad_client = TestClient(app, headers={"X-Username": "../../etc/passwd"})
+    resp = bad_client.get("/expenses")
+    assert resp.status_code == 400
+
+
+# -- User isolation ------------------------------------------------------
+
+def test_users_are_isolated():
+    """Expenses added for user A must not appear for user B."""
+    client_a = TestClient(app, headers={"X-Username": "isolate-a"})
+    client_b = TestClient(app, headers={"X-Username": "isolate-b"})
+    _get_store("isolate-a").clear()
+    _get_store("isolate-b").clear()
+
+    client_a.post("/expenses", json=make_expense(title="A-only"))
+    resp_b = client_b.get("/expenses")
+    assert resp_b.status_code == 200
+    assert all(e["title"] != "A-only" for e in resp_b.json())
+
+    _get_store("isolate-a").clear()
+    _get_store("isolate-b").clear()
+
+
+# -- Read ----------------------------------------------------------------
 
 def test_list_expenses_empty():
     resp = client.get("/expenses")
@@ -82,7 +123,7 @@ def test_list_expenses_empty():
 
 
 def test_list_expenses_returns_all():
-    client.post("/expenses", json=make_expense(title="Coffee", category="Food"))
+    client.post("/expenses", json=make_expense(title="Coffee",     category="Food"))
     client.post("/expenses", json=make_expense(title="Bus ticket", category="Transport"))
     resp = client.get("/expenses")
     assert resp.status_code == 200
@@ -90,8 +131,8 @@ def test_list_expenses_returns_all():
 
 
 def test_filter_expenses_by_category():
-    client.post("/expenses", json=make_expense(title="Coffee", category="Food"))
-    client.post("/expenses", json=make_expense(title="Lunch", category="Food"))
+    client.post("/expenses", json=make_expense(title="Coffee",     category="Food"))
+    client.post("/expenses", json=make_expense(title="Lunch",      category="Food"))
     client.post("/expenses", json=make_expense(title="Bus ticket", category="Transport"))
 
     resp = client.get("/expenses", params={"category": "Food"})
@@ -125,11 +166,11 @@ def test_get_single_expense_not_found():
     assert resp.status_code == 404
 
 
-# -- Totals ------------------------------------------------------------------
+# -- Totals --------------------------------------------------------------
 
 def test_totals_summary_overall_and_by_category():
     client.post("/expenses", json=make_expense(amount=10, category="Food"))
-    client.post("/expenses", json=make_expense(amount=5, category="Food"))
+    client.post("/expenses", json=make_expense(amount=5,  category="Food"))
     client.post("/expenses", json=make_expense(amount=20, category="Transport"))
 
     resp = client.get("/expenses/totals/summary")
@@ -145,7 +186,7 @@ def test_totals_summary_empty_store():
     assert resp.json() == {"overall_total": 0, "by_category": {}}
 
 
-# -- Delete ------------------------------------------------------------------
+# -- Delete --------------------------------------------------------------
 
 def test_delete_expense():
     created = client.post("/expenses", json=make_expense()).json()
@@ -169,3 +210,13 @@ def test_delete_then_totals_updates():
 
     resp = client.get("/expenses/totals/summary")
     assert resp.json()["overall_total"] == 5
+
+
+# -- Users list ----------------------------------------------------------
+
+def test_list_users_returns_known_users():
+    """GET /users should include testuser after an expense has been added."""
+    client.post("/expenses", json=make_expense())
+    resp = client.get("/users")   # no header needed
+    assert resp.status_code == 200
+    assert TEST_USER in resp.json()
