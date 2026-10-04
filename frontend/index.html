@@ -429,13 +429,19 @@
       <!-- AI assistant -->
       <div class="card" style="margin-top:1.5rem">
         <h2>🤖 AI Assistant</h2>
-        <div class="form-group">
-          <input id="ai-input" type="text" maxlength="500"
-                 placeholder='Try: "I spent 450 on dinner yesterday"' />
+        <div id="ai-unavailable" style="display:none;background:rgba(251,191,36,.1);border:1px solid var(--yellow);border-radius:8px;padding:.75rem 1rem;font-size:.85rem;color:var(--yellow);margin-bottom:.75rem">
+          ⚠️ AI Assistant is not configured on this server.<br>
+          <span style="color:var(--muted);font-size:.8rem">The form above works fully — AI is optional.</span>
         </div>
-        <button class="btn btn-primary" id="ai-btn" type="button">Ask</button>
-        <div id="ai-reply"   style="margin-top:.75rem;font-size:.9rem;color:var(--text)"></div>
-        <div id="ai-actions" style="margin-top:.4rem;font-size:.75rem;color:var(--muted)"></div>
+        <div id="ai-available">
+          <div class="form-group">
+            <input id="ai-input" type="text" maxlength="500"
+                   placeholder='Try: "I spent 450 on dinner yesterday"' />
+          </div>
+          <button class="btn btn-primary" id="ai-btn" type="button">Ask</button>
+          <div id="ai-reply"   style="margin-top:.75rem;font-size:.9rem;color:var(--text)"></div>
+          <div id="ai-actions" style="margin-top:.4rem;font-size:.75rem;color:var(--muted)"></div>
+        </div>
       </div>
 
       <!-- Category breakdown -->
@@ -580,6 +586,16 @@
     $('user-avatar').textContent = currentUser[0];
     // Set default date
     $('date').value = new Date().toISOString().slice(0, 10);
+    // Check if AI assistant is available
+    fetch(API + '/assistant/status')
+      .then(r => r.json())
+      .then(s => {
+        if (!s.groq_configured) {
+          $('ai-unavailable').style.display = 'block';
+          $('ai-available').style.display   = 'none';
+        }
+      })
+      .catch(() => {});
     loadAll();
   }
 

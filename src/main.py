@@ -164,6 +164,13 @@ def delete_expense(
 # ---------------------------------------------------------------------------
 # AI assistant
 # ---------------------------------------------------------------------------
+@app.get("/assistant/status", tags=["assistant"])
+def assistant_status():
+    """Returns whether a cloud LLM (Groq) is configured."""
+    from . import assistant as _asst
+    return {"groq_configured": bool(_asst.GROQ_API_KEY)}
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=500)
 
