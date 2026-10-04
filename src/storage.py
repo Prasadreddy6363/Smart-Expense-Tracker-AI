@@ -17,7 +17,12 @@ from typing import Dict, List, Optional
 
 from .models import Expense, ExpenseCreate
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+# On Render the persistent disk is mounted at /data.
+# Locally it falls back to the repo's own data/ folder.
+_RENDER_DATA = "/data"
+DATA_DIR = _RENDER_DATA if os.path.isdir(_RENDER_DATA) else os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"
+)
 DATA_FILE = os.path.join(DATA_DIR, "expenses.json")
 
 _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,32}$")
