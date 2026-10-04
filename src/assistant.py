@@ -25,7 +25,7 @@ from .storage import ExpenseStore
 
 # -- LLM config ---------------------------------------------------------------
 GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL    = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL    = os.getenv("GROQ_MODEL", "llama3-8b-8192")
 GROQ_URL      = "https://api.groq.com/openai/v1/chat/completions"
 
 OLLAMA_HOST   = os.getenv("OLLAMA_HOST", "http://localhost:11434")
